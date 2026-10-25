@@ -21,6 +21,12 @@ public class Usuario {
     @Column(nullable = false, length = 100)
     private String nome;
 
+    @Column(nullable = false, length = 20)
+    private String telefone;
+
+    @Column(name = "nome_negocio", nullable = false, length = 150)
+    private String nomeNegocio;
+
     @Column(nullable = false, unique = true, length = 100)
     private String email;
 
