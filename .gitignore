@@ -4,6 +4,14 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
+# Local secrets and database files
+src/main/resources/application-mysql.properties
+*.mv.db
+*.trace.db
+.env
+.env.*
+!.env.example
+
 ### STS ###
 .apt_generated
 .classpath

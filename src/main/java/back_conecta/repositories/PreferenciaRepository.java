@@ -6,4 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface PreferenciaRepository extends JpaRepository<Preferencia, Long> {
+    boolean existsByDescricao(String descricao);
 }
