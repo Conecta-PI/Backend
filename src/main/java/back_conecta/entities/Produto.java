@@ -36,6 +36,18 @@ public class Produto {
     @Column(nullable = false, columnDefinition = "integer default 0")
     private Integer estoque;
 
+    @Column(columnDefinition = "MEDIUMTEXT")
+    private String foto;
+
+    @Column(columnDefinition = "TEXT")
+    private String preparo;
+
+    @Column(columnDefinition = "TEXT")
+    private String rendimento;
+
+    @Column(columnDefinition = "TEXT")
+    private String ingredientes;
+
     @Column(nullable = false)
     private Boolean ativo;
 
