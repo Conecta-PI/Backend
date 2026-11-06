@@ -2,13 +2,21 @@ package back_conecta.services;
 
 import back_conecta.dto.AuthResponse;
 import back_conecta.dto.CadastroUsuarioRequest;
+import back_conecta.dto.ForgotPasswordRequest;
 import back_conecta.dto.LoginRequest;
+import back_conecta.dto.MensagemResponse;
+import back_conecta.dto.RecoveryVerificationResponse;
+import back_conecta.dto.ResetPasswordRequest;
+import back_conecta.dto.VerifyRecoveryCodeRequest;
 import back_conecta.entities.Usuario;
 import back_conecta.repositories.UsuarioRepository;
 import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
@@ -23,6 +31,8 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class AuthService {
     private static final long TOKEN_EXPIRATION_SECONDS = ChronoUnit.HOURS.getDuration().toSeconds() * 12;
+    private static final Map<String, String> CODIGOS_RECUPERACAO = new ConcurrentHashMap<>();
+    private static final SecureRandom RANDOM = new SecureRandom();
 
     private final UsuarioRepository usuarioRepository;
     private final PasswordEncoder passwordEncoder;
@@ -59,6 +69,9 @@ public class AuthService {
         usuario.setTelefone(request.telefone().trim());
         usuario.setNomeNegocio(request.negocio().trim());
         usuario.setSenhaHash(passwordEncoder.encode(request.senha()));
+        usuario.setPremium(false);
+        usuario.setCnpj(null);
+        usuario.setChavePix(null);
 
         return criarResposta(usuarioRepository.save(usuario));
     }
@@ -76,6 +89,42 @@ public class AuthService {
         }
 
         return criarResposta(usuario);
+    }
+
+    @Transactional(readOnly = true)
+    public MensagemResponse solicitarRecuperacao(ForgotPasswordRequest request) {
+        String email = normalizarEmail(request.email());
+        usuarioRepository.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado."));
+
+        String codigo = String.format("%06d", RANDOM.nextInt(1000000));
+        CODIGOS_RECUPERACAO.put(email, codigo);
+        return new MensagemResponse("Código de recuperação enviado para o e-mail informado. (Código de teste: " + codigo + ")");
+    }
+
+    @Transactional(readOnly = true)
+    public RecoveryVerificationResponse verificarCodigoRecuperacao(VerifyRecoveryCodeRequest request) {
+        String email = normalizarEmail(request.email());
+        String codigoEsperado = CODIGOS_RECUPERACAO.get(email);
+        boolean valido = codigoEsperado != null && codigoEsperado.equals(request.codigo().trim());
+        return new RecoveryVerificationResponse(valido);
+    }
+
+    @Transactional
+    public MensagemResponse redefinirSenha(ResetPasswordRequest request) {
+        String email = normalizarEmail(request.email());
+        String codigoEsperado = CODIGOS_RECUPERACAO.get(email);
+        if (codigoEsperado == null || !codigoEsperado.equals(request.codigo().trim())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Código de recuperação inválido ou expirado.");
+        }
+
+        Usuario usuario = usuarioRepository.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado."));
+        validarTamanhoSenha(request.novaSenha());
+        usuario.setSenhaHash(passwordEncoder.encode(request.novaSenha()));
+        usuarioRepository.save(usuario);
+        CODIGOS_RECUPERACAO.remove(email);
+        return new MensagemResponse("Senha redefinida com sucesso.");
     }
 
     private AuthResponse criarResposta(Usuario usuario) {
@@ -104,7 +153,7 @@ public class AuthService {
     }
 
     private void validarTamanhoSenha(String senha) {
-        if (senha.getBytes(StandardCharsets.UTF_8).length > 72) {
+        if (senha == null || senha.getBytes(StandardCharsets.UTF_8).length > 72) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "A senha deve ter no máximo 72 bytes em UTF-8."

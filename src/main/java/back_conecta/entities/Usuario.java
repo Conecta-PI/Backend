@@ -35,9 +35,21 @@ public class Usuario {
 
     @Column(name = "data_criacao", nullable = false)
     private LocalDateTime dataCriacao;
+
+    @Column(name = "cnpj", length = 18)
+    private String cnpj;
+
+    @Column(name = "chave_pix", length = 150)
+    private String chavePix;
+
+    @Column(name = "premium", nullable = false)
+    private Boolean premium = false;
     
     @PrePersist
     protected void onCreate() {
         this.dataCriacao = LocalDateTime.now();
+        if (this.premium == null) {
+            this.premium = false;
+        }
     }
 }
