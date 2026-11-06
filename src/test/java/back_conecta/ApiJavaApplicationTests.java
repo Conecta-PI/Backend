@@ -191,7 +191,7 @@ class ApiJavaApplicationTests {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.nome").value("Produto de teste"));
 
-        var produto = produtoRepository.findFirstByNomeProdutoIgnoreCase("Brigadeiro Gourmet").orElseThrow();
+        var produto = produtoRepository.findFirstByNomeProdutoIgnoreCase("Brigadeiro").orElseThrow();
         var cliente = clienteRepository.findFirstByEmailIgnoreCase("ana.costa@example.test").orElseThrow();
         int estoqueInicial = produto.getEstoque();
         mockMvc.perform(post("/api/vendas")
@@ -213,6 +213,6 @@ class ApiJavaApplicationTests {
         );
         mockMvc.perform(get("/api/vendas").header("Authorization", autorizacao))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].status").value("CONCLUIDA"));
+                .andExpect(jsonPath("$[0].status").value("pago"));
     }
 }
