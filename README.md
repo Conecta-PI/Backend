@@ -114,6 +114,17 @@ O front usa `expo-constants` para detectar o host informado pelo Expo e montar `
 
 O Hibernate cria/atualiza as tabelas com `ddl-auto=update` durante o desenvolvimento. A carga dos seis produtos e quatro clientes de demonstração é idempotente e não apaga nem sobrescreve registros existentes. Também é criada uma preferência, uma venda concluída de demonstração, dois itens e a movimentação correspondente, identificados como dados de teste; o estoque não é alterado por essa carga. O dashboard de demonstração é armazenado em tabelas `DASHBOARD_DEMO_*` separadas das vendas e movimentações, e é consultado por `GET /api/dashboard?periodo=hoje|semana|mes`; esses valores não representam transações reais. Não é criado um usuário de demonstração com senha em texto puro. Antes de usar uma base com dados importantes, faça backup e planeje migrações; não use essa configuração automática em produção. As credenciais devem ficar em variáveis de ambiente, nunca no Git.
 
+### Seed manual do MySQL e dados dinâmicos
+
+Há duas camadas de dados no projeto:
+
+1. `DemoDataInitializer` e `DashboardDemoInitializer` criam uma base mínima de teste ao iniciar a aplicação, quando o banco estiver vazio.
+2. `scripts/seed-mysql.sql` é um seed manual, opcional, para enriquecer a base de dados com mais produtos, clientes e registros de apoio para apresentações e testes mais completos.
+
+Ou seja: os dados do dashboard são dinâmicos porque vêm do banco e são montados por `GET /api/dashboard`, mas a carga de demo automática do backend só cria dados básicos; a base completa ainda depende do script SQL manual quando a equipe quiser popular mais itens ou validar cenários acadêmicos.
+
+O script manual não é executado automaticamente pela aplicação. Os nomes dos produtos são os mesmos nas duas camadas. Fluxo recomendado para a base completa: (1) inicie a API uma vez com `APP_DEMO_DATA_ENABLED=false` e o perfil `mysql` para criar as tabelas; (2) pare a API e rode `scripts/seed-mysql.ps1`; (3) inicie a API normalmente. Se a base já tiver produtos que não vieram da carga automática, a API não adiciona dados de demonstração. O script usa ids fixos com `INSERT IGNORE`: rode-o somente em base vazia, nunca sobre uma base já populada pela carga automática (isso geraria produtos e clientes duplicados).
+
 Para voltar ao H2, feche a API e remova o perfil MySQL desta sessão:
 
 ```powershell
