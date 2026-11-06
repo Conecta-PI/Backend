@@ -4,8 +4,7 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
-# Local secrets and database files
-src/main/resources/application-mysql.properties
+# Local secrets and database files (application-mysql.properties só usa variáveis de ambiente e deve ser versionado)
 *.mv.db
 *.trace.db
 .env
@@ -39,3 +38,10 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Logs e dumps de JVM ###
+*.log
+hs_err_pid*
+
+### Claude Code (local) ###
+.claude/
