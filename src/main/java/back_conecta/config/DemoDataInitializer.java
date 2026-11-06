@@ -20,6 +20,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -27,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Component
 @Profile({"h2", "mysql"})
+@ConditionalOnProperty(name = "app.demo-data.enabled", havingValue = "true", matchIfMissing = true)
 @Order(1)
 public class DemoDataInitializer implements ApplicationRunner {
     private static final String PREFERENCIA_DEMO =
@@ -58,6 +60,13 @@ public class DemoDataInitializer implements ApplicationRunner {
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
+        // Base já populada por outra origem (ex.: scripts/seed-mysql.sql): não mistura dados de demonstração.
+        boolean baseExterna = produtoRepository.count() > 0
+                && !preferenciaRepository.existsByDescricao(PREFERENCIA_DEMO);
+        if (baseExterna) {
+            return;
+        }
+
         seedProdutos();
         seedClientes();
         seedHistoricoDeTeste();
@@ -65,12 +74,12 @@ public class DemoDataInitializer implements ApplicationRunner {
 
     private void seedProdutos() {
         List<Produto> produtos = List.of(
-                produto("Bolo de Pote Choc", "Camadas de bolo de chocolate, brigadeiro cremoso e cobertura de morango.", "12.00", "Bolo de pote", 8),
-                produto("Bolo de Pote Morango", "Bolo branco, creme de baunilha e morangos frescos.", "12.00", "Bolo de pote", 5),
-                produto("Bolo de Pote Churros", "Bolo de canela com doce de leite e açúcar com canela.", "14.00", "Bolo de pote", 2),
-                produto("Lanche Nat. Frango", "Pão integral, frango desfiado, cenoura e alface.", "15.00", "Lanche", 10),
-                produto("Lanche Nat. Atum", "Pão italiano, atum, tomate e alface.", "15.00", "Lanche", 0),
-                produto("Brigadeiro Gourmet", "Brigadeiro com chocolate belga e granulado.", "5.00", "Doce", 15)
+                produto("Bolo de Pote Chocolate", "Camadas de bolo de chocolate, brigadeiro cremoso e cobertura de morango.", "12.00", "Bolo de pote", 8, "/images/produtos/bolo-pote-chocolate.png"),
+                produto("Bolo de Pote Morango", "Bolo branco, creme de baunilha e morangos frescos.", "12.00", "Bolo de pote", 5, "/images/produtos/bolo-pote-morango.png"),
+                produto("Bolo de Pote Churros", "Bolo de canela com doce de leite e açúcar com canela.", "14.00", "Bolo de pote", 2, "/images/produtos/bolo-pote-churros.png"),
+                produto("Lanche Natural Frango", "Pão integral, frango desfiado, cenoura e alface.", "15.00", "Lanche", 10, "/images/produtos/Lanche Natural Frango.webp"),
+                produto("Lanche Natural Atum", "Pão italiano, atum, tomate e alface.", "15.00", "Lanche", 0, "/images/produtos/lanche-natural-atum.png"),
+                produto("Brigadeiro", "Brigadeiro com chocolate belga e granulado.", "5.00", "Doce", 15, "/images/produtos/brigadeiro.png")
         );
 
         for (Produto produto : produtos) {
@@ -102,9 +111,9 @@ public class DemoDataInitializer implements ApplicationRunner {
 
         Cliente cliente = clienteRepository.findFirstByEmailIgnoreCase("ana.costa@example.test")
                 .orElseThrow();
-        Produto brigadeiro = produtoRepository.findFirstByNomeProdutoIgnoreCase("Brigadeiro Gourmet")
+        Produto brigadeiro = produtoRepository.findFirstByNomeProdutoIgnoreCase("Brigadeiro")
                 .orElseThrow();
-        Produto bolo = produtoRepository.findFirstByNomeProdutoIgnoreCase("Bolo de Pote Choc")
+        Produto bolo = produtoRepository.findFirstByNomeProdutoIgnoreCase("Bolo de Pote Chocolate")
                 .orElseThrow();
 
         Preferencia preferencia = new Preferencia(
@@ -145,7 +154,7 @@ public class DemoDataInitializer implements ApplicationRunner {
         movimentacaoRepository.save(movimentacao);
     }
 
-    private Produto produto(String nome, String descricao, String preco, String categoria, int estoque) {
+    private Produto produto(String nome, String descricao, String preco, String categoria, int estoque, String foto) {
         Produto produto = new Produto();
         produto.setNomeProduto(nome);
         produto.setDescricao(descricao);
@@ -153,6 +162,7 @@ public class DemoDataInitializer implements ApplicationRunner {
         produto.setPrecoCusto(null);
         produto.setCategoria(categoria);
         produto.setEstoque(estoque);
+        produto.setFoto(foto);
         produto.setAtivo(true);
         return produto;
     }
