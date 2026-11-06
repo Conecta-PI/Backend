@@ -1,11 +1,10 @@
 package back_conecta.repositories;
 
 import back_conecta.entities.Venda;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 import java.util.List;
+import org.springframework.data.jpa.repository.JpaRepository;
 
-@Repository
 public interface VendaRepository extends JpaRepository<Venda, Long> {
     List<Venda> findAllByOrderByDataVendaDesc();
+    List<Venda> findAllByClienteIdClienteOrderByDataVendaDesc(Long clienteId);
 }

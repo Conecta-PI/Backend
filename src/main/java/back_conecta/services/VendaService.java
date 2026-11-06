@@ -1,8 +1,11 @@
 package back_conecta.services;
 
+import back_conecta.dto.ItemVendaDetalheResponse;
 import back_conecta.dto.ItemVendaRequest;
+import back_conecta.dto.VendaDetalheResponse;
 import back_conecta.dto.VendaRequest;
 import back_conecta.dto.VendaResponse;
+import back_conecta.dto.VendaUpdateRequest;
 import back_conecta.entities.Cliente;
 import back_conecta.entities.ItemVenda;
 import back_conecta.entities.MovimentacaoFinanceira;
@@ -48,6 +51,41 @@ public class VendaService {
                 .stream()
                 .map(VendaResponse::from)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public VendaDetalheResponse buscar(Long id) {
+        Venda venda = vendaRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Venda não encontrada"));
+        return VendaDetalheResponse.from(venda);
+    }
+
+    @Transactional
+    public VendaResponse atualizar(Long id, VendaUpdateRequest request) {
+        Venda venda = vendaRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Venda não encontrada"));
+
+        if (request.status() != null) {
+            venda.setStatusVenda(request.status());
+        }
+        if (request.formaPagamento() != null) {
+            venda.setFormaPagamento(request.formaPagamento());
+        }
+
+        return VendaResponse.from(vendaRepository.save(venda));
+    }
+
+    @Transactional
+    public void cancelar(Long id) {
+        Venda venda = vendaRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Venda não encontrada"));
+
+        if (venda.getStatusVenda() == StatusVenda.CANCELADA) {
+            return;
+        }
+
+        venda.setStatusVenda(StatusVenda.CANCELADA);
+        vendaRepository.save(venda);
     }
 
     @Transactional
