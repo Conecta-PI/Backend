@@ -1,3 +1,4 @@
+
 package back_conecta.entities;
 
 import jakarta.persistence.*;
@@ -29,9 +30,19 @@ public class Cliente {
     @Column(columnDefinition = "TEXT")
     private String observacoes;
 
+    @Column(nullable = false)
+    private Boolean ativo;
+
     @OneToMany(mappedBy = "cliente", cascade = CascadeType.ALL)
     private java.util.List<Venda> vendas;
 
     @OneToMany(mappedBy = "cliente", cascade = CascadeType.ALL)
     private java.util.List<Preferencia> preferencias;
+
+    @PrePersist
+    protected void aplicarValoresPadrao() {
+        if (ativo == null) {
+            ativo = true;
+        }
+    }
 }
