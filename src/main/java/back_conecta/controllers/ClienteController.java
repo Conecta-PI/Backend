@@ -1,13 +1,17 @@
+
 package back_conecta.controllers;
 
 import back_conecta.dto.ClienteDetalheResponse;
 import back_conecta.dto.ClienteRequest;
 import back_conecta.dto.ClienteResponse;
 import back_conecta.dto.ClienteResumoResponse;
+import back_conecta.dto.ClienteObservacaoRequest;
 import back_conecta.services.ClienteService;
+
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,11 +21,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import back_conecta.dto.ClienteObservacaoRequest;
 
 @RestController
 @RequestMapping("/api/clientes")
 public class ClienteController {
+
     private final ClienteService clienteService;
 
     public ClienteController(ClienteService clienteService) {
@@ -31,6 +35,12 @@ public class ClienteController {
     @GetMapping
     public List<ClienteResponse> listar() {
         return clienteService.listar();
+    }
+
+    // Lista somente clientes inativos
+    @GetMapping("/inativos")
+    public List<ClienteResponse> listarInativos() {
+        return clienteService.listarInativos();
     }
 
     @GetMapping("/{id}")
@@ -44,13 +54,21 @@ public class ClienteController {
     }
 
     @PostMapping
-    public ResponseEntity<ClienteDetalheResponse> criar(@Valid @RequestBody ClienteRequest request) {
+    public ResponseEntity<ClienteDetalheResponse> criar(
+            @Valid @RequestBody ClienteRequest request) {
+
         ClienteDetalheResponse cliente = clienteService.criar(request);
-        return ResponseEntity.created(URI.create("/api/clientes/" + cliente.id())).body(cliente);
+
+        return ResponseEntity
+                .created(URI.create("/api/clientes/" + cliente.id()))
+                .body(cliente);
     }
 
     @PatchMapping("/{id}")
-    public ClienteDetalheResponse atualizar(@PathVariable Long id, @Valid @RequestBody ClienteRequest request) {
+    public ClienteDetalheResponse atualizar(
+            @PathVariable Long id,
+            @Valid @RequestBody ClienteRequest request) {
+
         return clienteService.atualizar(id, request);
     }
 
@@ -60,8 +78,21 @@ public class ClienteController {
         return ResponseEntity.noContent().build();
     }
 
+    // Reativa um cliente anteriormente desativado
+    @PatchMapping("/{id}/reativar")
+    public ResponseEntity<Void> reativar(@PathVariable Long id) {
+        clienteService.reativar(id);
+        return ResponseEntity.noContent().build();
+    }
+
     @PatchMapping("/{id}/observacao")
-    public ClienteDetalheResponse atualizarObservacao(@PathVariable Long id, @Valid @RequestBody ClienteObservacaoRequest request) {
-        return clienteService.atualizarObservacao(id, request.observacao());
+    public ClienteDetalheResponse atualizarObservacao(
+            @PathVariable Long id,
+            @Valid @RequestBody ClienteObservacaoRequest request) {
+
+        return clienteService.atualizarObservacao(
+                id,
+                request.observacao()
+        );
     }
 }

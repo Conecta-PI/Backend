@@ -1,3 +1,4 @@
+
 package back_conecta.dto;
 
 import jakarta.validation.constraints.DecimalMin;
@@ -9,6 +10,6 @@ public record FinanceiroLancamentoRequest(
         @NotBlank String tipo,
         @NotNull @DecimalMin(value = "0.01") BigDecimal valor,
         @NotBlank String categoria,
-        @NotBlank String descricao,
+        String descricao,
         Long vendaId
 ) {}

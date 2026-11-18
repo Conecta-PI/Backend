@@ -5,5 +5,10 @@ import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface EncomendaRepository extends JpaRepository<Encomenda, Long> {
+
     List<Encomenda> findAllByOrderByDataPedidoDesc();
+
+    List<Encomenda> findAllByClienteIdOrderByDataPedidoDesc(Long clienteId);
+
+    boolean existsByClienteId(Long clienteId);
 }
