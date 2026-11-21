@@ -32,7 +32,6 @@ public class ProdutoService {
     @Transactional(readOnly = true)
     public ProdutoResponse buscar(Long id) {
         Produto produto = produtoRepository.findById(id)
-                .filter(item -> Boolean.TRUE.equals(item.getAtivo()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Produto não encontrado"));
         return ProdutoResponse.from(produto);
     }
@@ -78,17 +77,27 @@ public class ProdutoService {
         Produto produto = produtoRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Produto não encontrado"));
 
-        produto.setNomeProduto(request.nome().trim());
-        produto.setDescricao(request.descricao());
-        produto.setPrecoCusto(request.precoCusto() == null ? produto.getPrecoCusto() : request.precoCusto());
-        produto.setPrecoVenda(request.preco());
-        produto.setCategoria(request.categoria().trim());
-        produto.setEstoque(request.estoque());
-        produto.setFoto(request.foto());
-        produto.setPreparo(request.preparo());
-        produto.setRendimento(request.rendimento());
-        produto.setIngredientes(serializarIngredientes(request.ingredientes()));
-        produto.setAtivo(request.ativo() == null ? produto.getAtivo() : request.ativo());
+        if (request.nome() != null) {
+            if (request.nome().isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nome do produto é obrigatório");
+            }
+            produto.setNomeProduto(request.nome().trim());
+        }
+        if (request.descricao() != null) produto.setDescricao(request.descricao());
+        if (request.precoCusto() != null) produto.setPrecoCusto(request.precoCusto());
+        if (request.preco() != null) produto.setPrecoVenda(request.preco());
+        if (request.categoria() != null) {
+            if (request.categoria().isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Categoria é obrigatória");
+            }
+            produto.setCategoria(request.categoria().trim());
+        }
+        if (request.estoque() != null) produto.setEstoque(request.estoque());
+        if (request.foto() != null && !request.foto().isBlank()) produto.setFoto(request.foto());
+        if (request.preparo() != null) produto.setPreparo(request.preparo());
+        if (request.rendimento() != null) produto.setRendimento(request.rendimento());
+        if (request.ingredientes() != null) produto.setIngredientes(serializarIngredientes(request.ingredientes()));
+        if (request.ativo() != null) produto.setAtivo(request.ativo());
 
         return ProdutoResponse.from(produtoRepository.save(produto));
     }
@@ -97,8 +106,26 @@ public class ProdutoService {
         if (ingredientes == null || ingredientes.isEmpty()) {
             return null;
         }
+        StringBuilder json = new StringBuilder("[");
+        for (int i = 0; i < ingredientes.size(); i++) {
+            Object item = ingredientes.get(i);
+            if (i > 0) json.append(",");
+            if (item instanceof back_conecta.dto.ProdutoIngredienteRequest ingrediente) {
+                json.append("{\"nome\":\"").append(escapeJson(ingrediente.nome()))
+                        .append("\",\"quantidade\":").append(ingrediente.quantidade() == null ? "null" : ingrediente.quantidade())
+                        .append(",\"unidade\":\"").append(escapeJson(ingrediente.unidade())).append("\"}");
+            }
+        }
+        json.append("]");
+        return json.toString();
+    }
 
-        return ingredientes.toString();
+    private String escapeJson(String valor) {
+        if (valor == null) return "";
+        return valor.replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r");
     }
 
     @Transactional

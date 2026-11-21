@@ -1,13 +1,13 @@
 package back_conecta.dto;
 
-import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Email;
 
 public record FornecedorRequest(
-        @NotBlank String nome,
+        String nome,
         String categoria,
         String contato,
         String telefone,
-        String email,
+        @Email(message = "E-mail do fornecedor inválido") String email,
         String observacao,
         Boolean ativo
 ) {

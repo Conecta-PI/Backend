@@ -20,6 +20,7 @@ import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import jakarta.servlet.http.HttpServletResponse;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 
 @Configuration
@@ -39,10 +40,19 @@ public class SecurityConfig {
                                 "/api/auth/verify-recovery-code",
                                 "/api/auth/reset-password"
                         ).permitAll()
-                        .requestMatchers("/h2-console/**", "/images/**", "/error").permitAll()
+                        .requestMatchers("/h2-console/**", "/images/**", "/uploads/**", "/error").permitAll()
                         .anyRequest().authenticated()
                 )
-                .oauth2ResourceServer(resourceServer -> resourceServer.jwt(Customizer.withDefaults()))
+                .oauth2ResourceServer(resourceServer -> resourceServer
+                        .jwt(Customizer.withDefaults())
+                        .authenticationEntryPoint((request, response, exception) -> {
+                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                            response.setContentType("application/json");
+                            response.setCharacterEncoding("UTF-8");
+                            response.getWriter().write(
+                                    "{\"status\":401,\"title\":\"Unauthorized\",\"detail\":\"Token ausente, inválido ou expirado.\",\"message\":\"Token ausente, inválido ou expirado.\"}"
+                            );
+                        }))
                 .build();
     }
 

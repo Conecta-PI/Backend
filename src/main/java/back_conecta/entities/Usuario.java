@@ -44,6 +44,9 @@ public class Usuario {
 
     @Column(name = "premium", nullable = false)
     private Boolean premium = false;
+
+    @Column(name = "foto", columnDefinition = "TEXT")
+    private String foto;
     
     @PrePersist
     protected void onCreate() {

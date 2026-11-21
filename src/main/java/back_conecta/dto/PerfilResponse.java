@@ -10,6 +10,7 @@ public record PerfilResponse(
         String email,
         String cnpj,
         String chavePix,
+        String foto,
         Resumo resumo
 ) {
     public static PerfilResponse from(Usuario usuario, long pedidos, long clientes, long produtos) {
@@ -21,6 +22,7 @@ public record PerfilResponse(
                 usuario.getEmail(),
                 usuario.getCnpj(),
                 usuario.getChavePix(),
+                usuario.getFoto(),
                 new Resumo((int) pedidos, (int) clientes, (int) produtos)
         );
     }

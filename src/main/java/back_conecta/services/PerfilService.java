@@ -19,17 +19,20 @@ public class PerfilService {
     private final ClienteRepository clienteRepository;
     private final ProdutoRepository produtoRepository;
     private final VendaRepository vendaRepository;
+    private final PerfilImageStorage perfilImageStorage;
 
     public PerfilService(
             UsuarioRepository usuarioRepository,
             ClienteRepository clienteRepository,
             ProdutoRepository produtoRepository,
-            VendaRepository vendaRepository
+            VendaRepository vendaRepository,
+            PerfilImageStorage perfilImageStorage
     ) {
         this.usuarioRepository = usuarioRepository;
         this.clienteRepository = clienteRepository;
         this.produtoRepository = produtoRepository;
         this.vendaRepository = vendaRepository;
+        this.perfilImageStorage = perfilImageStorage;
     }
 
     @Transactional(readOnly = true)
@@ -56,31 +59,56 @@ public class PerfilService {
                         "A conta autenticada não foi encontrada."
                 ));
 
-        if (request.nome() != null && !request.nome().isBlank()) {
-            usuario.setNome(request.nome().trim());
+        if (request.getNome() != null) {
+            if (request.getNome().isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nome é obrigatório.");
+            }
+            usuario.setNome(request.getNome().trim());
         }
-        if (request.negocio() != null && !request.negocio().isBlank()) {
-            usuario.setNomeNegocio(request.negocio().trim());
+        if (request.getNegocio() != null) {
+            if (request.getNegocio().isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nome do negócio é obrigatório.");
+            }
+            usuario.setNomeNegocio(request.getNegocio().trim());
         }
-        if (request.telefone() != null && !request.telefone().isBlank()) {
-            usuario.setTelefone(request.telefone().trim());
+        if (request.getTelefone() != null) {
+            if (request.getTelefone().isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Telefone inválido.");
+            }
+            validarTelefone(request.getTelefone());
+            usuario.setTelefone(request.getTelefone().trim());
         }
-        if (request.email() != null && !request.email().isBlank()) {
-            String novoEmail = normalizarEmail(request.email());
+        if (request.getEmail() != null) {
+            if (request.getEmail().isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "E-mail inválido.");
+            }
+            String novoEmail = normalizarEmail(request.getEmail());
             if (!novoEmail.equalsIgnoreCase(usuario.getEmail())
                     && usuarioRepository.existsByEmailIgnoreCase(novoEmail)) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Este e-mail já está em uso.");
             }
             usuario.setEmail(novoEmail);
         }
-        if (request.cnpj() != null) {
-            usuario.setCnpj(request.cnpj().isBlank() ? null : request.cnpj().trim());
+        if (request.getCnpj() != null) {
+            if (request.getCnpj().isBlank()) {
+                usuario.setCnpj(null);
+            } else {
+                usuario.setCnpj(validarFormatarCnpj(request.getCnpj()));
+            }
         }
-        if (request.chavePix() != null) {
-            usuario.setChavePix(request.chavePix().isBlank() ? null : request.chavePix().trim());
+        if (request.getChavePix() != null) {
+            usuario.setChavePix(request.getChavePix().isBlank() ? null : request.getChavePix().trim());
         }
-        if (request.premium() != null) {
-            usuario.setPremium(request.premium());
+        if (request.getPremium() != null) {
+            usuario.setPremium(request.getPremium());
+        }
+        if (request.isFotoEnviada()) {
+            String fotoAnterior = usuario.getFoto();
+            String novaFoto = perfilImageStorage.salvarDataUrl(request.getFoto());
+            usuario.setFoto(novaFoto);
+            if (!java.util.Objects.equals(fotoAnterior, novaFoto)) {
+                perfilImageStorage.removerAntiga(fotoAnterior);
+            }
         }
 
         usuarioRepository.save(usuario);
@@ -89,5 +117,39 @@ public class PerfilService {
 
     private String normalizarEmail(String email) {
         return email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private void validarTelefone(String telefone) {
+        String digitos = telefone.replaceAll("\\D", "");
+        if (digitos.length() < 10 || digitos.length() > 15) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Telefone inválido.");
+        }
+    }
+
+    private String validarFormatarCnpj(String cnpj) {
+        String digitos = cnpj.replaceAll("\\D", "");
+        if (digitos.length() != 14 || digitos.matches("(\\d)\\1{13}") || !calcularDigitoCnpj(digitos)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "CNPJ inválido.");
+        }
+        return digitos.substring(0, 2) + "." + digitos.substring(2, 5) + "."
+                + digitos.substring(5, 8) + "/" + digitos.substring(8, 12)
+                + "-" + digitos.substring(12);
+    }
+
+    private boolean calcularDigitoCnpj(String digitos) {
+        int[] pesosPrimeiro = {5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2};
+        int[] pesosSegundo = {6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2};
+        int primeiro = calcularRestoCnpj(digitos.substring(0, 12), pesosPrimeiro);
+        int segundo = calcularRestoCnpj(digitos.substring(0, 12) + primeiro, pesosSegundo);
+        return digitos.endsWith("" + primeiro + segundo);
+    }
+
+    private int calcularRestoCnpj(String valor, int[] pesos) {
+        int soma = 0;
+        for (int i = 0; i < valor.length(); i++) {
+            soma += Character.digit(valor.charAt(i), 10) * pesos[i];
+        }
+        int resto = soma % 11;
+        return resto < 2 ? 0 : 11 - resto;
     }
 }

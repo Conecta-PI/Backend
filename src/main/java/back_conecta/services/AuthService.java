@@ -10,6 +10,7 @@ import back_conecta.dto.ResetPasswordRequest;
 import back_conecta.dto.VerifyRecoveryCodeRequest;
 import back_conecta.entities.Usuario;
 import back_conecta.repositories.UsuarioRepository;
+import back_conecta.validation.SenhaValidator;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Instant;
@@ -61,7 +62,7 @@ public class AuthService {
         if (usuarioRepository.existsByEmailIgnoreCase(email)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Este e-mail já possui uma conta.");
         }
-        validarTamanhoSenha(request.senha());
+        validarSenha(request.senha());
 
         Usuario usuario = new Usuario();
         usuario.setNome(request.nome().trim());
@@ -120,7 +121,7 @@ public class AuthService {
 
         Usuario usuario = usuarioRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado."));
-        validarTamanhoSenha(request.novaSenha());
+        validarSenha(request.novaSenha());
         usuario.setSenhaHash(passwordEncoder.encode(request.novaSenha()));
         usuarioRepository.save(usuario);
         CODIGOS_RECUPERACAO.remove(email);
@@ -152,11 +153,11 @@ public class AuthService {
         );
     }
 
-    private void validarTamanhoSenha(String senha) {
-        if (senha == null || senha.getBytes(StandardCharsets.UTF_8).length > 72) {
+    private void validarSenha(String senha) {
+        if (!SenhaValidator.atendeRegras(senha)) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "A senha deve ter no máximo 72 bytes em UTF-8."
+                    "A senha deve ter pelo menos 8 caracteres, incluindo letra maiúscula, letra minúscula e número."
             );
         }
     }
