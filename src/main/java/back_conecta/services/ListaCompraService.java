@@ -39,11 +39,12 @@ public class ListaCompraService {
 
     @Transactional
     public ListaCompraResponse criar(ListaCompraRequest request) {
+        validarLista(request, true);
         ListaCompra listaCompra = new ListaCompra();
-        listaCompra.setTitulo(request.titulo() == null || request.titulo().isBlank() ? "Lista de compras" : request.titulo());
+        listaCompra.setTitulo(request.titulo().trim());
         listaCompra.setStatus(request.status() == null || request.status().isBlank() ? "aberta" : request.status().trim().toLowerCase());
         listaCompra.setPrioridade(request.prioridade() == null || request.prioridade().isBlank() ? "media" : request.prioridade().trim().toLowerCase());
-        listaCompra.setTotalEstimado(request.totalEstimado() == null ? BigDecimal.ZERO : request.totalEstimado());
+        listaCompra.setTotalEstimado(calcularTotal(request.itens()));
 
         List<ListaCompraItem> itens = new ArrayList<>();
         if (request.itens() != null) {
@@ -72,9 +73,10 @@ public class ListaCompraService {
     public ListaCompraResponse atualizar(Long id, ListaCompraRequest request) {
         ListaCompra listaCompra = listaCompraRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Lista de compras não encontrada"));
+        validarLista(request, false);
 
         if (request.titulo() != null) {
-            listaCompra.setTitulo(request.titulo());
+            listaCompra.setTitulo(request.titulo().trim());
         }
         if (request.status() != null) {
             listaCompra.setStatus(request.status().trim().toLowerCase());
@@ -99,6 +101,9 @@ public class ListaCompraService {
                 ));
             }
             listaCompra.setItens(itens);
+            listaCompra.setTotalEstimado(calcularTotal(request.itens()));
+        } else {
+            listaCompra.setTotalEstimado(calcularTotalItens(listaCompra.getItens()));
         }
 
         if ("concluida".equalsIgnoreCase(listaCompra.getStatus())) {
@@ -118,5 +123,66 @@ public class ListaCompraService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Lista de compras não encontrada");
         }
         listaCompraRepository.deleteById(id);
+    }
+
+    private void validarLista(ListaCompraRequest request, boolean criacao) {
+        if (criacao && (request.titulo() == null || request.titulo().isBlank())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Título da lista é obrigatório");
+        }
+        if (!criacao && request.titulo() != null && request.titulo().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Título da lista é obrigatório");
+        }
+        if (criacao && (request.itens() == null || request.itens().isEmpty())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A lista deve possuir pelo menos um item");
+        }
+        if (request.itens() != null) {
+            if (request.itens().isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A lista deve possuir pelo menos um item");
+            }
+            for (ListaCompraItemRequest item : request.itens()) {
+                validarItem(item);
+            }
+        }
+        if (request.status() != null
+                && !List.of("aberta", "concluida").contains(request.status().trim().toLowerCase())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status da lista inválido");
+        }
+        if (request.prioridade() != null
+                && !List.of("alta", "media", "baixa").contains(request.prioridade().trim().toLowerCase())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Prioridade da lista inválida");
+        }
+    }
+
+    private void validarItem(ListaCompraItemRequest item) {
+        if (item == null || item.nomeProduto() == null || item.nomeProduto().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nome do produto é obrigatório");
+        }
+        if (item.quantidade() == null || item.quantidade() <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Quantidade deve ser maior que zero");
+        }
+        if (item.precoUnitario() == null || item.precoUnitario().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Preço unitário deve ser maior que zero");
+        }
+    }
+
+    private BigDecimal calcularTotal(List<ListaCompraItemRequest> itens) {
+        if (itens == null) {
+            return BigDecimal.ZERO;
+        }
+        return itens.stream()
+                .map(item -> item.precoUnitario().multiply(BigDecimal.valueOf(item.quantidade())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .setScale(2, java.math.RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal calcularTotalItens(List<ListaCompraItem> itens) {
+        if (itens == null) {
+            return BigDecimal.ZERO;
+        }
+        return itens.stream()
+                .filter(item -> item.getPrecoUnitario() != null && item.getQuantidade() != null)
+                .map(item -> item.getPrecoUnitario().multiply(BigDecimal.valueOf(item.getQuantidade())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .setScale(2, java.math.RoundingMode.HALF_UP);
     }
 }

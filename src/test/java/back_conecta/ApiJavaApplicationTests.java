@@ -26,6 +26,8 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -68,6 +70,24 @@ class ApiJavaApplicationTests {
 	}
 
     @Test
+    void rejeitaSenhaInvalidaNoCadastro() throws Exception {
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "nome": "Senha inválida",
+                                  "email": "senha-invalida@conecta.test",
+                                  "telefone": "(11) 99999-0000",
+                                  "senha": "senhafraca",
+                                  "negocio": "Teste"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    @Test
     void fluxoDeCadastroDeProdutoEDeVenda() throws Exception {
         mockMvc.perform(get("/api/produtos"))
                 .andExpect(status().isUnauthorized());
@@ -79,7 +99,7 @@ class ApiJavaApplicationTests {
                                   "nome": "Responsável cadastrado",
                                   "email": "paulo@conecta.test",
                                   "telefone": "(11) 99999-0000",
-                                  "senha": "senha-segura-123",
+                                  "senha": "Senha-segura-123",
                                   "negocio": "Negócio cadastrado"
                                 }
                                 """))
@@ -92,7 +112,7 @@ class ApiJavaApplicationTests {
         mockMvc.perform(post("/api/auth/login")
                         .contentType("application/json")
                         .content("""
-                                {"email":"PAULO@CONECTA.TEST","senha":"senha-segura-123"}
+                                {"email":"PAULO@CONECTA.TEST","senha":"Senha-segura-123"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.tokenType").value("Bearer"))
@@ -102,8 +122,68 @@ class ApiJavaApplicationTests {
         String token = tokenMatcher.group(1);
         String autorizacao = "Bearer " + token;
 
+        mockMvc.perform(patch("/api/perfil")
+                        .header("Authorization", autorizacao)
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "nome": "Responsável cadastrado",
+                                  "negocio": "Negócio cadastrado",
+                                  "telefone": "(11) 98888-7777",
+                                  "email": "paulo@conecta.test",
+                                  "cnpj": "12.345.678/0001-95",
+                                  "chavePix": "paulo@conecta.test"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nome").value("Responsável cadastrado"))
+                .andExpect(jsonPath("$.negocio").value("Negócio cadastrado"))
+                .andExpect(jsonPath("$.cnpj").value("12.345.678/0001-95"))
+                .andExpect(jsonPath("$.chavePix").value("paulo@conecta.test"))
+                .andExpect(jsonPath("$.resumo").exists());
+
+        mockMvc.perform(get("/api/perfil").header("Authorization", autorizacao))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nome").value("Responsável cadastrado"))
+                .andExpect(jsonPath("$.foto").value((Object) null));
+
+        String respostaComFoto = mockMvc.perform(patch("/api/perfil")
+                        .header("Authorization", autorizacao)
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "foto": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.foto").value(org.hamcrest.Matchers.startsWith("/uploads/perfil/")))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        Matcher fotoMatcher = Pattern.compile("\"foto\":\"([^\"]+)\"").matcher(respostaComFoto);
+        Assertions.assertTrue(fotoMatcher.find());
+        String fotoAtual = fotoMatcher.group(1);
+
+        mockMvc.perform(patch("/api/perfil")
+                        .header("Authorization", autorizacao)
+                        .contentType("application/json")
+                        .content("""
+                                {"telefone":"(11) 97777-6666"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.foto").value(fotoAtual));
+
+        mockMvc.perform(patch("/api/perfil")
+                        .header("Authorization", autorizacao)
+                        .contentType("application/json")
+                        .content("""
+                                {"foto":null}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.foto").value((Object) null));
+
         Assertions.assertNotEquals(
-                "senha-segura-123",
+                "Senha-segura-123",
                 usuarioRepository.findByEmailIgnoreCase("paulo@conecta.test").orElseThrow().getSenhaHash()
         );
 
@@ -121,12 +201,64 @@ class ApiJavaApplicationTests {
                                   "nome": "Outra pessoa",
                                   "email": "outra@conecta.test",
                                   "telefone": "(11) 99999-1111",
-                                  "senha": "senha-segura-456",
+                                  "senha": "Senha-segura-456",
                                   "negocio": "Outro negócio"
                                 }
                                 """))
                 .andExpect(status().isConflict());
         Assertions.assertEquals(1, usuarioRepository.count());
+
+        mockMvc.perform(post("/api/fornecedores")
+                        .header("Authorization", autorizacao)
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "nome": "Fornecedor integração",
+                                  "categoria": "Insumos",
+                                  "contato": "Maria",
+                                  "telefone": "(11) 3333-4444",
+                                  "email": "fornecedor@example.test",
+                                  "observacao": "Teste",
+                                  "ativo": true
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.nome").value("Fornecedor integração"));
+
+        mockMvc.perform(post("/api/financeiro/lancamentos")
+                        .header("Authorization", autorizacao)
+                        .contentType("application/json")
+                        .content("""
+                                {"tipo":"entrada","valor":350.50,"categoria":"Venda"}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.valor").value(350.50));
+        mockMvc.perform(get("/api/financeiro/resumo").header("Authorization", autorizacao))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.entradas").exists());
+        mockMvc.perform(get("/api/financeiro/lancamentos").header("Authorization", autorizacao))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].valor").exists());
+
+        mockMvc.perform(post("/api/lista-compras")
+                        .header("Authorization", autorizacao)
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "titulo": "Compra integração",
+                                  "status": "aberta",
+                                  "prioridade": "media",
+                                  "itens": [{
+                                    "nomeProduto": "Farinha",
+                                    "quantidade": 5,
+                                    "precoUnitario": 12.50,
+                                    "concluido": false
+                                  }]
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.totalEstimado").value(62.50))
+                .andExpect(jsonPath("$.itens.length()").value(1));
 
         mockMvc.perform(get("/api/produtos").header("Authorization", autorizacao))
                 .andExpect(status().isOk())
@@ -144,7 +276,7 @@ class ApiJavaApplicationTests {
         Assertions.assertEquals(1, preferenciaRepository.count());
         Assertions.assertEquals(1, vendaRepository.count());
         Assertions.assertEquals(2, itemVendaRepository.count());
-        Assertions.assertEquals(1, movimentacaoRepository.count());
+        Assertions.assertEquals(2, movimentacaoRepository.count());
         Assertions.assertEquals(1, dashboardRepository.count());
         Assertions.assertEquals(3, recebidoRepository.count());
         Assertions.assertEquals(3, alertaRepository.count());

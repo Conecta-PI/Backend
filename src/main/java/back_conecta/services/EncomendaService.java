@@ -222,9 +222,15 @@ public class EncomendaService {
                         "Encomenda não encontrada"
                 ));
 
-        if (status != null && !status.isBlank()) {
-            encomenda.setStatus(status.trim().toLowerCase());
+        if (status == null || status.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status da encomenda é obrigatório");
         }
+
+        String novoStatus = status.trim().toLowerCase();
+        if (!List.of("pendente", "em_producao", "pronta", "entregue", "cancelado").contains(novoStatus)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status da encomenda inválido");
+        }
+        encomenda.setStatus(novoStatus);
 
         return EncomendaResponse.from(encomendaRepository.save(encomenda));
     }

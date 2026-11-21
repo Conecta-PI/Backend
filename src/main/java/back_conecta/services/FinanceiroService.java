@@ -12,6 +12,8 @@ import java.util.List;
 import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class FinanceiroService {
@@ -52,7 +54,16 @@ public class FinanceiroService {
 
     @Transactional
     public FinanceiroLancamentoResponse criarLancamento(FinanceiroLancamentoRequest request) {
-        String tipo = request.tipo() == null ? "saida" : request.tipo().trim().toLowerCase();
+        String tipo = request.tipo() == null ? "" : request.tipo().trim().toLowerCase();
+        if (!List.of("entrada", "saida").contains(tipo)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tipo deve ser entrada ou saida");
+        }
+        if (request.valor() == null || request.valor().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Valor deve ser maior que zero");
+        }
+        if (request.categoria() == null || request.categoria().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Categoria é obrigatória");
+        }
         boolean tipoMovimento = "entrada".equals(tipo);
 
         MovimentacaoFinanceira lancamento = new MovimentacaoFinanceira();

@@ -35,8 +35,11 @@ public class FornecedorService {
 
     @Transactional
     public FornecedorResponse criar(FornecedorRequest request) {
+        if (request.nome() == null || request.nome().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nome do fornecedor é obrigatório");
+        }
         Fornecedor fornecedor = new Fornecedor();
-        fornecedor.setNome(request.nome());
+        fornecedor.setNome(request.nome().trim());
         fornecedor.setCategoria(request.categoria());
         fornecedor.setContato(request.contato());
         fornecedor.setTelefone(request.telefone());
@@ -52,7 +55,12 @@ public class FornecedorService {
         Fornecedor fornecedor = fornecedorRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Fornecedor não encontrado"));
 
-        fornecedor.setNome(request.nome());
+        if (request.nome() != null) {
+            if (request.nome().isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nome do fornecedor é obrigatório");
+            }
+            fornecedor.setNome(request.nome().trim());
+        }
         if (request.categoria() != null) {
             fornecedor.setCategoria(request.categoria());
         }

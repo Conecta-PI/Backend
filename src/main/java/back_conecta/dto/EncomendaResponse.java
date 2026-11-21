@@ -12,6 +12,9 @@ public record EncomendaResponse(
         String status,
         LocalDateTime dataPedido,
         LocalDateTime dataEntrega,
+        String horario,
+        String tipoEntrega,
+        BigDecimal sinalPago,
         BigDecimal valorTotal,
         String observacao,
         List<EncomendaItemResponse> itens
@@ -24,6 +27,10 @@ public record EncomendaResponse(
                 encomenda.getStatus(),
                 encomenda.getDataPedido(),
                 encomenda.getDataEntrega(),
+                encomenda.getDataEntrega() == null ? null : String.format("%02d:%02d",
+                        encomenda.getDataEntrega().getHour(), encomenda.getDataEntrega().getMinute()),
+                encomenda.getTipoEntrega(),
+                encomenda.getSinalPago(),
                 encomenda.getValorTotal(),
                 encomenda.getObservacao(),
                 encomenda.getItens() == null
